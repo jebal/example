@@ -1,0 +1,6 @@
+**/build
+**/bin
+**/*.vscode
+**/*.conf
+**/*.out
+**/.xmake
