@@ -22,5 +22,24 @@ int main(int argc, const char** argv)
 
     deleteList(pList);
 
+    std::vector<int> vData;
+    vData.push_back(890);
+    vData.push_back(90);
+    vData.push_back(992);
+    vData.push_back(8);
+    vData.push_back(80);
+    vData.push_back(8000);
+    vData.push_back(210);
+    vData.push_back(90);
+    vData.push_back(4342);
+    vData.push_back(43);
+    vData.push_back(-9);
+
+    printVec(vData);
+
+    quikeSort(vData);
+    
+    printVec(vData);
+
     return 0;
 }

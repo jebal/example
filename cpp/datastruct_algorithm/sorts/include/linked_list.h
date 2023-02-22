@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 
 
 #define SAFE_DELETE(ptr)        if (ptr) { delete ptr; ptr = NULL; }   
@@ -117,6 +118,9 @@ stListNode* popMinNode(stListNode* pList)
     return pMinNode;
 }
 
+/////////////////////////////////////////////////////////////////////////
+
+// select sort
 
 stListNode* selectSort(stListNode*& pList, bool bDesc=false)
 {
@@ -145,4 +149,63 @@ stListNode* selectSort(stListNode*& pList, bool bDesc=false)
     SAFE_DELETE(pList)
    
     return pNewListHead;
+}
+
+///////////////////////////////////////////////////////////////////////
+
+// quike sort
+
+void printVec(const std::vector<int>& vData)
+{    
+    int len = vData.size();
+    for (int i = 0; i < len; ++ i)
+    {
+        std::cout << vData[i] << " ";
+    }
+
+    std::cout << std::endl;
+}
+
+
+void quikeSort(std::vector<int>& vData)
+{
+  //  printVec(vData);
+
+    static int enterCnt = 0;
+    std::cout << "enter quikesort() 第 "  << ++ enterCnt << " 次" << std::endl;
+
+    int len = vData.size();
+    if (len < 2)
+    { 
+        return; 
+    }    
+
+    int mid = len / 2;
+    int midData = vData[mid];
+    std::vector<int> vLowerData, vUpperData;    
+    for (int i = 0; i < len; ++ i)
+    {
+        if (i == mid)
+        {
+            continue;
+        }
+
+        if (vData[i] <= midData)
+        {
+            vLowerData.push_back(vData[i]);            
+        }
+        else
+        {
+            vUpperData.push_back(vData[i]);
+        }
+    }
+   
+    quikeSort(vLowerData);
+    quikeSort(vUpperData);
+
+    vData.clear(); 
+
+    vData.push_back(midData);   
+    vData.insert(vData.begin(), vLowerData.begin(), vLowerData.end());
+    vData.insert(vData.end(), vUpperData.begin(), vUpperData.end());
 }
