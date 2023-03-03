@@ -1,10 +1,13 @@
 #include <iostream>
+#include <iomanip>
 #include <map>
 #include <string>
 #include <deque>
 #include <list>
 #include <set>
 #include <algorithm>
+
+#include "calc_dis_func.h"
 
 
 typedef std::map<std::string, std::deque<std::string>> RelaGraphMap;
@@ -162,16 +165,271 @@ void dijkstra(const AddressMap& mapAddr, int startID, int endID)
     std::cout << startID;
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
+// astar
+
+// 图信息
+int graph_data[GRAPH_SIZE] = {
+    0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+};
+
+void printGraphPath(int graph_data[GRAPH_SIZE])
+{
+    std::cout << "begin ----------------------" << std::endl;
+    for (int i = 0; i < GRAPH_HEIGHT; ++ i)
+    {
+        for (int j = 0; j < GRAPH_WIDTH; ++ j)
+        {
+            std::cout << std::setw(4) << std::setfill(' ') << graph_data[i*GRAPH_WIDTH + j];
+        }
+
+        std::cout << std::endl;
+    }
+    std::cout << "end ----------------------" << std::endl;
+}
+
+void printNodeList(const OPEN_LIST& validNodeList)
+{
+    std::cout << "valide list ----------------------" << std::endl;
+    OPEN_LIST::const_iterator it = validNodeList.begin();
+    OPEN_LIST::const_iterator itEnd = validNodeList.end();
+    for ( ; it != itEnd; ++ it)
+    {
+        std::cout << it->pNode << "-->" << it->cost << "   ";
+    }
+    std::cout << "end ----------------------" << std::endl;
+}
+
+
+void pushOpenList(OPEN_LIST& validNodeList, PathNode* pNode, int cost)
+{
+    if (NULL == pNode)
+    {
+        return;
+    }
+
+    OpenListNode node(pNode, cost);
+    if (!validNodeList.empty())
+    {
+        OPEN_LIST::iterator it = validNodeList.begin();
+        OPEN_LIST::iterator itEnd = validNodeList.end();
+        for ( ; it != itEnd; ++ it)
+        {
+            if (cost < it->cost)
+            {
+                validNodeList.insert(it, node);
+                break;
+            }
+        }
+    }
+    else
+    {
+        validNodeList.push_back(node);  
+    }    
+}
+
+PathNode *popOpenList(OPEN_LIST& validNodeList)
+{
+    PathNode *ret = NULL;
+    if (!validNodeList.empty())
+    {
+        ret = validNodeList.front().pNode;
+        validNodeList.pop_front();
+    }
+
+    return ret;
+}
+
+bool isBlock(const Point& pos)
+{
+    int index = pos.getIndex();
+    if (index < GRAPH_SIZE)
+    {
+        return graph_data[index];
+    }
+    
+    return false;
+}
 
 // A星搜索算法
-void astar_search()
+void astar_search(const Point& startPos, const Point& endPos)
 {
-    
+    // 缓存开销
+    int disMap[GRAPH_SIZE];
+    std::fill_n(disMap, GRAPH_SIZE, MAX_DWORD_SIZE);
+
+    // 记录路径点数据(这里将会存放最终结果，路径点回溯)
+    PathNode pathNodeData[GRAPH_SIZE * 8 + 1];
+
+    // 起始点
+    PathNode* pCurNode = &pathNodeData[GRAPH_SIZE*8];
+    pCurNode->pos = startPos;
+    pCurNode->father = NULL;
+    pCurNode->cost = 0;
+
+    // 有效节点列表（待检测的节点，按开销小到大排序，每次取开销最小节点）
+    OPEN_LIST listValidNode;
+    pushOpenList(listValidNode, pCurNode, pCurNode->cost + euclidian(startPos, endPos));
+   
+    int findedCnt = 0;
+	//无论如何,循环超过MaxNum次则放弃
+	while (findedCnt < GRAPH_SIZE)
+    {
+        pCurNode = popOpenList(listValidNode);
+		if (NULL == pCurNode)
+		{
+			//目标点不可达
+			return;
+		}
+
+		if (pCurNode->pos == endPos)
+		{
+			//找到到达目的地的路径
+			break;
+		}
+
+        // 该点的8个方向
+        for (int i = 0; i < 8; ++ i)
+		{
+            Point tempPos = pCurNode->pos;
+            tempPos.x += adjust[i].x;
+            tempPos.y += adjust[i].y;
+			            
+            if (!isBlock(tempPos))
+			{
+                bool bCanWalk = true;
+
+				//对路径进行回溯
+				PathNode *p = pCurNode;
+				while (p)
+				{
+					if (p->pos == tempPos)
+					{
+						//发现坐标点已经在回溯路径中，不能向前走(检查是否在close table)
+						bCanWalk = false;
+						break;
+					}
+					p = p->father;
+				}
+
+				//如果路径回溯成功，表示这个点是可行走的
+				if (bCanWalk)
+				{
+					int cost = pCurNode->cost + STEP;
+					int index = tempPos.getIndex();
+					if (index >= 0 && index < GRAPH_SIZE && cost < disMap[index])
+					{
+						//这条路径比上次计算的路径还要短，需要加入到最短路径队列中
+						disMap[index] = cost;
+						
+                        PathNode *pNewNode = &pathNodeData[findedCnt * 8 + i];
+						pNewNode->pos = tempPos;
+						pNewNode->cost = cost;
+						pNewNode->father = pCurNode;
+
+                        pushOpenList(listValidNode, pNewNode, pNewNode->cost + euclidian(tempPos, endPos));		
+
+                        std::cout << "push list: (" << tempPos.x << ", " << tempPos.y << ") cost:" << cost << std::endl;
+					}
+				}
+			}
+		}
+
+        printNodeList(listValidNode);
+
+		++ findedCnt;
+	}
+
+	if (findedCnt < GRAPH_SIZE)
+	{
+        graph_data[startPos.getIndex()] = 7;
+        graph_data[endPos.getIndex()] = 7;
+
+		//最终路径在PointHead中,但只走一步
+		while (pCurNode)
+		{
+			//倒数第二个节点
+			if (pCurNode->father)
+			{
+                int index = pCurNode->pos.getIndex();
+                if (GRAPH_SIZE <= index)
+                {
+                    std::cout << "====== Array out of bounds error =======" << std::endl;
+                    break;
+                }
+
+                graph_data[index] = 7;				
+			}
+            else
+            {
+                break;    
+            }
+
+			pCurNode = pCurNode->father;
+		}
+
+        printGraphPath(graph_data);
+	}
 }
 
 
 int main(int argc, const char** argv) 
-{
+{   
+
+    /*
+        0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+        0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 1, 0, 0, 0    
+    */
+    astar_search(Point(1, 1), Point(7, 9));
+    //printGraphPath(graph_data);
+
+//     PathNode pathNodeData[GRAPH_SIZE * 8 + 1];
+
+//     OPEN_LIST validNodeList;
+//     PathNode *pNewNode = &pathNodeData[1 * 8 + 1];
+//     pNewNode->pos = Point(2, 3);
+//     pNewNode->cost = 32;
+//     pNewNode->father = NULL;
+//     pushOpenList(validNodeList, pNewNode, pNewNode->cost + 43);
+//     printNodeList(validNodeList);
+
+//     pNewNode = &pathNodeData[1 * 8 + 2];
+//     pNewNode->pos = Point(3, 4);
+//     pNewNode->cost = 2;
+//     pNewNode->father = NULL;
+//     pushOpenList(validNodeList, pNewNode, pNewNode->cost + 12);
+// printNodeList(validNodeList);
+//     pNewNode = &pathNodeData[1 * 8 + 3];
+//     pNewNode->pos = Point(4, 5);
+//     pNewNode->cost = 3;
+//     pNewNode->father = NULL;
+//     pushOpenList(validNodeList, pNewNode, pNewNode->cost + 12);
+
+//     printNodeList(validNodeList);
+
+    // validNodeList.pop_front();
+
+    // printNodeList(validNodeList);
+
+/*
     RelaGraphMap mapRelaGraph;
 
     std::deque<std::string> dqFriend;
@@ -240,6 +498,6 @@ int main(int argc, const char** argv)
     mapAddr.insert({777, mapNborWeight});
 
     dijkstra(mapAddr, 111, 888);
-
+*/
     return 0;
 }
