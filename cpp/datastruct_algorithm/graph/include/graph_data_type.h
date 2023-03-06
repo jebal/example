@@ -7,8 +7,8 @@ const int GRAPH_SIZE = GRAPH_WIDTH * GRAPH_HEIGHT;
 const int MAX_DWORD_SIZE = 999999999;
 const int STEP = 1;
 
-const int STRAGHT_COST = 100;
-const int DIR_COST = 101;
+const int STRAGHT_COST = 2;
+const int DIR_COST = 10;
 const int K_COST = 1;
 const int D_COST = 2;
 

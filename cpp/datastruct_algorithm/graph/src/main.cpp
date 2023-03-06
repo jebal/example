@@ -484,7 +484,8 @@ int main(int argc, const char** argv)
         manhattan  euclidian  heuristic
         calc_cost_func = euclidian;
     */
-    Point startPos = Point(1, 1), endPos = Point(9, 9);
+    Point startPos = Point(1, 1), endPos = Point(7, 9);
+
     std::cout << "manhattan: ---- " << std::endl;
     astar_search(startPos, endPos, manhattan);
     std::cout << "manhattan with dir: ---- " << std::endl;
