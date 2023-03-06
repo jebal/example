@@ -2,10 +2,12 @@
 #include <iomanip>
 #include <map>
 #include <string>
+#include <string.h>
 #include <deque>
 #include <list>
 #include <set>
 #include <algorithm>
+#include <sstream>
 
 #include "calc_dis_func.h"
 
@@ -170,44 +172,62 @@ void dijkstra(const AddressMap& mapAddr, int startID, int endID)
 // astar
 
 // 图信息
-int graph_data[GRAPH_SIZE] = {
-    0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-    0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+int GRAPH_DATA[GRAPH_SIZE] = {
+    0, 0, 0, 0, 9, 0, 0, 0, 9, 0,
+    0, 0, 9, 0, 9, 0, 0, 0, 9, 0,
+    0, 0, 9, 0, 9, 0, 0, 0, 9, 0,
+    0, 0, 9, 0, 9, 0, 0, 0, 0, 0,
+    0, 0, 9, 0, 9, 0, 9, 0, 0, 0,
+    0, 0, 0, 0, 9, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 9, 9, 0, 0,
+    0, 0, 0, 9, 0, 0, 9, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 9, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 9, 0, 0, 0
 };
 
 void printGraphPath(int graph_data[GRAPH_SIZE])
-{
-    std::cout << "begin ----------------------" << std::endl;
+{    
     for (int i = 0; i < GRAPH_HEIGHT; ++ i)
     {
         for (int j = 0; j < GRAPH_WIDTH; ++ j)
         {
-            std::cout << std::setw(4) << std::setfill(' ') << graph_data[i*GRAPH_WIDTH + j];
+            if (0 == graph_data[i*GRAPH_WIDTH + j])// 可行点
+            {
+                std::cout << std::setw(4) << std::setfill(' ') << '*';
+            }
+            else if (1 == graph_data[i*GRAPH_WIDTH + j])// 起点
+            {
+                std::cout << std::setw(4) << std::setfill(' ') << '>';
+            }
+            else if (2 == graph_data[i*GRAPH_WIDTH + j])// 经过点
+            {
+                std::cout << std::setw(4) << std::setfill(' ') << '>';
+            }
+            else if (3 == graph_data[i*GRAPH_WIDTH + j])// 终点
+            {
+                std::cout << std::setw(4) << std::setfill(' ') << '>';
+            }
+            else if (9 == graph_data[i*GRAPH_WIDTH + j])// 阻挡点
+            {
+                std::cout << std::setw(4) << std::setfill(' ') << 'X';
+            }
         }
 
         std::cout << std::endl;
     }
-    std::cout << "end ----------------------" << std::endl;
+    std::cout << std::endl;
 }
 
 void printNodeList(const OPEN_LIST& validNodeList)
 {
-    std::cout << "valide list ----------------------" << std::endl;
+    std::cout << "valide list ------- ";
     OPEN_LIST::const_iterator it = validNodeList.begin();
     OPEN_LIST::const_iterator itEnd = validNodeList.end();
     for ( ; it != itEnd; ++ it)
     {
-        std::cout << it->pNode << "-->" << it->cost << "   ";
+        std::cout << "(" << it->pNode->pos.x << ", " << it->pNode->pos.y << "):" << it->cost << " --> ";
     }
-    std::cout << "end ----------------------" << std::endl;
+    std::cout << std::endl;
 }
 
 
@@ -228,14 +248,12 @@ void pushOpenList(OPEN_LIST& validNodeList, PathNode* pNode, int cost)
             if (cost < it->cost)
             {
                 validNodeList.insert(it, node);
-                break;
+                return;
             }
         }
     }
-    else
-    {
-        validNodeList.push_back(node);  
-    }    
+    
+    validNodeList.push_back(node);
 }
 
 PathNode *popOpenList(OPEN_LIST& validNodeList)
@@ -255,31 +273,38 @@ bool isBlock(const Point& pos)
     int index = pos.getIndex();
     if (index < GRAPH_SIZE)
     {
-        return graph_data[index];
+        return GRAPH_DATA[index];
     }
     
     return false;
 }
 
 // A星搜索算法
-void astar_search(const Point& startPos, const Point& endPos)
+void astar_search(const Point& startPos, const Point& endPos, calc_cost_func cost_func, bool bDirCost=false)
 {
+    int graph_data[GRAPH_SIZE];
+    memcpy(graph_data, GRAPH_DATA, sizeof(int) * GRAPH_SIZE);
+
     // 缓存开销
     int disMap[GRAPH_SIZE];
     std::fill_n(disMap, GRAPH_SIZE, MAX_DWORD_SIZE);
 
     // 记录路径点数据(这里将会存放最终结果，路径点回溯)
-    PathNode pathNodeData[GRAPH_SIZE * 8 + 1];
+    const int PathNodeSize = GRAPH_SIZE * 8 + 1;
+    PathNode pathNodeData[PathNodeSize];
 
     // 起始点
     PathNode* pCurNode = &pathNodeData[GRAPH_SIZE*8];
     pCurNode->pos = startPos;
     pCurNode->father = NULL;
+    pCurNode->dir = -1;
     pCurNode->cost = 0;
-
+    
     // 有效节点列表（待检测的节点，按开销小到大排序，每次取开销最小节点）
     OPEN_LIST listValidNode;
-    pushOpenList(listValidNode, pCurNode, pCurNode->cost + euclidian(startPos, endPos));
+    pushOpenList(listValidNode, pCurNode, pCurNode->cost + cost_func(startPos, endPos));
+
+    std::set<int> setChecked;
    
     int findedCnt = 0;
 	//无论如何,循环超过MaxNum次则放弃
@@ -289,14 +314,27 @@ void astar_search(const Point& startPos, const Point& endPos)
 		if (NULL == pCurNode)
 		{
 			//目标点不可达
-			return;
-		}
-
-		if (pCurNode->pos == endPos)
-		{
-			//找到到达目的地的路径
+        //    std::cout << "Node NULL" << std::endl;
 			break;
 		}
+
+        int posIndex = pCurNode->pos.getIndex();
+        if (setChecked.find(posIndex) != setChecked.end())
+        {
+         //   std::cout << "Node checked (" << pCurNode->pos .x << ", " << pCurNode->pos .y << ")" << std::endl;
+            continue;
+        }
+        
+        setChecked.insert(posIndex);
+
+        //
+		if (pCurNode->pos == endPos)
+		{
+		//	std::cout << "arrived! (" << pCurNode->pos .x << ", " << pCurNode->pos .y << ")" << std::endl;
+			break;
+		}
+
+      //  std::cout << "pop node (" << pCurNode->pos .x << ", " << pCurNode->pos .y << ")" << std::endl;
 
         // 该点的8个方向
         for (int i = 0; i < 8; ++ i)
@@ -305,55 +343,100 @@ void astar_search(const Point& startPos, const Point& endPos)
             tempPos.x += adjust[i].x;
             tempPos.y += adjust[i].y;
 			            
+            int roundPosIndex = tempPos.getIndex();
+            if (-1 == roundPosIndex)
+            {           
+             //   std::cout << "(" << tempPos.x << ", " << tempPos.y << ") pos error" << std::endl;     
+                continue;
+            }
+            
+            if (setChecked.find(roundPosIndex) != setChecked.end())
+            {
+             //   std::cout << "(" << tempPos.x << ", " << tempPos.y << ") pos checked" << std::endl;     
+                continue;
+            }
+
             if (!isBlock(tempPos))
 			{
-                bool bCanWalk = true;
+                //bool bCanWalk = true;
 
-				//对路径进行回溯
-				PathNode *p = pCurNode;
-				while (p)
-				{
-					if (p->pos == tempPos)
-					{
-						//发现坐标点已经在回溯路径中，不能向前走(检查是否在close table)
-						bCanWalk = false;
-						break;
-					}
-					p = p->father;
-				}
+                // 每一个可行点，都获得一个转弯次数的开销
+                // int changeDirCost = 0;
+                // if (bDirCost)
+                // {
+                //     //对路径进行回溯
+                //     PathNode *p = pCurNode;
+                //     while (p)
+                //     {
+                //         if (p->father)
+                //         {
+                //             if (p->dir != p->father->dir)    
+                //             {
+                //                 changeDirCost += DIR_COST;
+                //             }
+                //         }
+                        
+                //         p = p->father;
+                //     }
+                // }
 
 				//如果路径回溯成功，表示这个点是可行走的
-				if (bCanWalk)
+				//if (bCanWalk)
 				{
 					int cost = pCurNode->cost + STEP;
-					int index = tempPos.getIndex();
-					if (index >= 0 && index < GRAPH_SIZE && cost < disMap[index])
-					{
-						//这条路径比上次计算的路径还要短，需要加入到最短路径队列中
-						disMap[index] = cost;
-						
-                        PathNode *pNewNode = &pathNodeData[findedCnt * 8 + i];
-						pNewNode->pos = tempPos;
-						pNewNode->cost = cost;
-						pNewNode->father = pCurNode;
+					if (0 <= roundPosIndex && roundPosIndex < GRAPH_SIZE && cost < disMap[roundPosIndex])
+					{	
+                        disMap[roundPosIndex] = cost;
 
-                        pushOpenList(listValidNode, pNewNode, pNewNode->cost + euclidian(tempPos, endPos));		
+                        //
+                        int findedIndex = findedCnt * 8 + i;
+                        if (findedIndex < PathNodeSize)
+                        {
+                            PathNode *pNewNode = &pathNodeData[findedIndex];
+                            pNewNode->pos = tempPos;
+                            pNewNode->cost = cost;
+                            pNewNode->father = pCurNode;
+                            pNewNode->dir = i;
 
-                        std::cout << "push list: (" << tempPos.x << ", " << tempPos.y << ") cost:" << cost << std::endl;
+                            if (bDirCost && pCurNode->dir != i)
+                            {                                
+                                pNewNode->dirCost = pCurNode->dirCost + DIR_COST; 
+                            }
+                            
+                            int totalCost = pNewNode->cost + cost_func(tempPos, endPos) + pNewNode->dirCost;
+                            pushOpenList(listValidNode, pNewNode, totalCost);	
+
+                         //   std::cout << "push list: (" << tempPos.x << ", " << tempPos.y << ") cost:" << cost << " totalCost:"<< totalCost << " findedIndex:" << findedIndex << std::endl;
+
+                         //   printNodeList(listValidNode);
+                        }
+                        else
+                        {
+                         //   std::cout << "path index error (" << tempPos.x << ", " << tempPos.y << ") cost:" << cost << std::endl;
+                        }
 					}
+                    else
+                    {
+                     //   std::cout << "(" << tempPos.x << ", " << tempPos.y << ") cost:" << cost << " last cost:" << disMap[roundPosIndex] << " pos error" << std::endl;
+                    }
 				}
 			}
+            else
+            {
+             //   std::cout << "(" << tempPos.x << ", " << tempPos.y << ") pos block " << std::endl;
+            }
 		}
 
-        printNodeList(listValidNode);
+       // printNodeList(listValidNode);
+       // std::cout << "==================\r\n" << std::endl;
 
 		++ findedCnt;
 	}
 
 	if (findedCnt < GRAPH_SIZE)
 	{
-        graph_data[startPos.getIndex()] = 7;
-        graph_data[endPos.getIndex()] = 7;
+        graph_data[startPos.getIndex()] = 1;
+        graph_data[endPos.getIndex()] = 3;
 
 		//最终路径在PointHead中,但只走一步
 		while (pCurNode)
@@ -368,7 +451,7 @@ void astar_search(const Point& startPos, const Point& endPos)
                     break;
                 }
 
-                graph_data[index] = 7;				
+                graph_data[index] = 2;				
 			}
             else
             {
@@ -387,18 +470,36 @@ int main(int argc, const char** argv)
 {   
 
     /*
-        0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 1, 1, 0, 0, 1, 0,
+        0, 0, 1, 0, 1, 0, 0, 0, 1, 0,
+        0, 0, 1, 0, 1, 0, 0, 0, 1, 0,
+        0, 0, 1, 0, 1, 0, 0, 0, 0, 0,
+        0, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+        0, 0, 0, 0, 1, 0, 1, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
         0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 1, 0, 0, 0    
+           
+        manhattan  euclidian  heuristic
+        calc_cost_func = euclidian;
     */
-    astar_search(Point(1, 1), Point(7, 9));
+    Point startPos = Point(1, 1), endPos = Point(9, 9);
+    std::cout << "manhattan: ---- " << std::endl;
+    astar_search(startPos, endPos, manhattan);
+    std::cout << "manhattan with dir: ---- " << std::endl;
+    astar_search(startPos, endPos, manhattan, true);
+
+    // std::cout << "euclidian:" << std::endl;
+    // astar_search(startPos, endPos, euclidian);
+    // std::cout << "euclidian with dir: ---- " << std::endl;
+    // astar_search(startPos, endPos, euclidian, true);
+    
+    // std::cout << "heuristic:" << std::endl;
+    // astar_search(startPos, endPos, heuristic);
+    // std::cout << "heuristic with dir:" << std::endl;
+    // astar_search(startPos, endPos, heuristic, true);
+
     //printGraphPath(graph_data);
 
 //     PathNode pathNodeData[GRAPH_SIZE * 8 + 1];

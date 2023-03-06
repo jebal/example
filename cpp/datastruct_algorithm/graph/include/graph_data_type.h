@@ -7,9 +7,10 @@ const int GRAPH_SIZE = GRAPH_WIDTH * GRAPH_HEIGHT;
 const int MAX_DWORD_SIZE = 999999999;
 const int STEP = 1;
 
-const int STRAGHT_COST = 1;
+const int STRAGHT_COST = 100;
+const int DIR_COST = 101;
 const int K_COST = 1;
-const int D_COST = 100;
+const int D_COST = 2;
 
 struct Point
 {
@@ -23,6 +24,11 @@ struct Point
 
     int getIndex() const
     {
+        if (x < 0 || y < 0 || GRAPH_HEIGHT <= y || GRAPH_WIDTH <= x)
+        {
+            return -1;
+        }
+        
         return y * GRAPH_WIDTH + x;
     }
 
@@ -36,7 +42,14 @@ struct PathNode
 {
     Point pos;              // 当前点
     int cost;               // 记录从起始点到该点的开销
+    int dir;                // 从父节点过来的方向
+    int dirCost;            // 转弯次数的开销
     PathNode* father;       // 父节点
+
+    PathNode() : cost(0), dir(-1), dirCost(0), father(NULL)
+    {
+
+    }
 };
 
 struct OpenListNode

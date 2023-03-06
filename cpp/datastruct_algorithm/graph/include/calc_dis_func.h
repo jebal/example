@@ -8,7 +8,7 @@
 
 int manhattan(const Point& p1, const Point& p2)
 {
-    return (abs(p1.x - p2.x) + abs(p1.y - p2.y)) * STRAGHT_COST;
+    return std::max(abs(p1.x - p2.x), abs(p1.y - p2.y)) * STRAGHT_COST;
 }
 
 int euclidian(const Point& p1, const Point& p2)
@@ -25,6 +25,7 @@ int heuristic(const Point& p1, const Point& p2)
     return sqrt(dx * dx + dy * dy) * D_COST;
 }
 
+
 // int diagonal(const Point& p1, const Point& p2)
 // {
 //     int dx = abs(p1.x - p2.x);
@@ -34,7 +35,7 @@ int heuristic(const Point& p1, const Point& p2)
 //     return diag * STRAGHT_COST + (str)
 // }
 
-
+typedef int (*calc_cost_func)(const Point& p1, const Point& p2);
     
 
 #endif
